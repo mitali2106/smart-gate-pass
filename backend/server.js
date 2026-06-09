@@ -43,20 +43,22 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000
 
-mongoose.connect(process.env.MONGODB_URI, {
-  serverSelectionTimeoutMS: 10000,
-  socketTimeoutMS: 45000,
-  family: 4
-})
-  .then(() => {
-    console.log('Connected to MongoDB Atlas')
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`)
+if (process.env.NODE_ENV !== 'test') {
+  mongoose.connect(process.env.MONGODB_URI, {
+    serverSelectionTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+    family: 4
+  })
+    .then(() => {
+      console.log('Connected to MongoDB Atlas')
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`)
+      })
     })
-  })
-  .catch((err) => {
-    console.error('MongoDB connection failed:', err.message)
-    process.exit(1)
-  })
+    .catch((err) => {
+      console.error('MongoDB connection failed:', err.message)
+      process.exit(1)
+    })
+}
 
 module.exports = app
