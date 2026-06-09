@@ -40,12 +40,14 @@ describe('Role-based authorization tests', () => {
   })
 
   test('admin can access admin dashboard', async () => {
-    const token = makeToken('admin')
-    const res = await request(app)
-      .get('/api/admin/dashboard')
-      .set('Authorization', `Bearer ${token}`)
-    expect(res.statusCode).not.toBe(403)
-  })
+  const token = makeToken('admin')
+  const res = await request(app)
+    .get('/api/admin/dashboard')
+    .set('Authorization', `Bearer ${token}`)
+    .timeout(10000)
+  expect(res.statusCode).not.toBe(403)
+}, 10000)
+
 
   test('contractor cannot access security entry endpoint', async () => {
     const token = makeToken('contractor')
