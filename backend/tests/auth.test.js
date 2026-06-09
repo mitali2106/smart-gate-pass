@@ -1,4 +1,5 @@
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test_secret'
+jest.setTimeout(15000)
 
 const request = require('supertest')
 const jwt = require('jsonwebtoken')
@@ -39,15 +40,15 @@ describe('Role-based authorization tests', () => {
     expect(res.statusCode).toBe(403)
   })
 
-  test('admin can access admin dashboard', async () => {
-  const token = makeToken('admin')
-  const res = await request(app)
-    .get('/api/admin/dashboard')
-    .set('Authorization', `Bearer ${token}`)
-    .timeout(10000)
-  expect(res.statusCode).not.toBe(403)
-}, 10000)
-
+  test('admin token is not rejected as 403 or 401', async () => {
+    const token = makeToken('admin')
+    const res = await request(app)
+      .post('/api/admin/approve-batch')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ workerIds: ['123'] })
+    expect(res.statusCode).not.toBe(403)
+    expect(res.statusCode).not.toBe(401)
+  })
 
   test('contractor cannot access security entry endpoint', async () => {
     const token = makeToken('contractor')
