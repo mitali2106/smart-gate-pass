@@ -68,6 +68,27 @@ const GateOfficerDashboard = () => {
     }
   }
 
+  const downloadQR = () => {
+    const svg = document.querySelector('#gate-pass-qr svg')
+    if (!svg) return
+    const svgData = new XMLSerializer().serializeToString(svg)
+    const canvas = document.createElement('canvas')
+    canvas.width = 200
+    canvas.height = 200
+    const ctx = canvas.getContext('2d')
+    const img = new Image()
+    img.onload = () => {
+      ctx.fillStyle = 'white'
+      ctx.fillRect(0, 0, 200, 200)
+      ctx.drawImage(img, 0, 0, 200, 200)
+      const a = document.createElement('a')
+      a.download = `GatePass-${generatedPass.passNumber}.png`
+      a.href = canvas.toDataURL('image/png')
+      a.click()
+    }
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)))
+  }
+
   return (
     <div>
       <nav className="navbar navbar-dark bg-success px-4">
@@ -133,14 +154,19 @@ const GateOfficerDashboard = () => {
                 <h6 className="text-success">✅ Gate Pass Generated</h6>
                 <p className="mb-1"><strong>Pass Number:</strong> {generatedPass.passNumber}</p>
                 <p className="mb-2"><strong>Valid for:</strong> Today only</p>
-                <div className="d-flex justify-content-center mt-2">
+                <div id="gate-pass-qr" className="d-flex justify-content-center mt-2">
                   <QRCodeSVG value={generatedPass.qrPayload} size={150} />
                 </div>
                 <p className="text-muted small text-center mt-2">
                   Worker can show this QR at the security gate
                 </p>
                 <button
-                  className="btn btn-outline-success btn-sm mt-2"
+                  className="btn btn-success w-100 mt-2"
+                  onClick={downloadQR}>
+                  ⬇ Download Gate Pass QR
+                </button>
+                <button
+                  className="btn btn-outline-success btn-sm mt-2 w-100"
                   onClick={() => {
                     setScanResult(null)
                     setGeneratedPass(null)
