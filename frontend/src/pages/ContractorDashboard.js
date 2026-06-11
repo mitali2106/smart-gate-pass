@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
+import * as faceapi from 'face-api.js'
 
 const ContractorDashboard = () => {
   const { user, logout } = useAuth()
@@ -46,8 +47,35 @@ const ContractorDashboard = () => {
     } catch (err) {}
   }
 
-  const generateMockEncoding = () => {
-    return Array.from({ length: 128 }, () => Math.random())
+  const extractFaceEncoding = async (photoBase64) => {
+    try {
+      const MODEL_URL = '/models'
+      if (!window.faceApiLoaded) {
+        await Promise.all([
+          faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ])
+        window.faceApiLoaded = true
+      }
+
+      const img = new Image()
+      img.src = photoBase64
+      await new Promise((resolve) => { img.onload = resolve })
+
+      const detection = await faceapi
+        .detectSingleFace(img)
+        .withFaceLandmarks()
+        .withFaceDescriptor()
+
+      if (!detection) {
+        throw new Error('No face detected in photo. Please upload a clear face photo.')
+      }
+
+      return Array.from(detection.descriptor)
+    } catch (err) {
+      throw new Error(err.message || 'Failed to extract face encoding')
+    }
   }
 
   const handleAddWorker = async (e) => {
@@ -56,13 +84,20 @@ const ContractorDashboard = () => {
     setAddError(null)
     setAddSuccess(null)
     try {
-      const faceEncoding = generateMockEncoding()
+      if (!newWorker.photo) {
+        setAddError('Please upload a worker photo')
+        setAddLoading(false)
+        return
+      }
+      setAddSuccess('Extracting face encoding from photo...')
+      const faceEncoding = await extractFaceEncoding(newWorker.photo)
+      setAddSuccess('Registering worker...')
       await api.post('/workers', { ...newWorker, faceEncoding })
       setAddSuccess('Worker registered successfully')
       setNewWorker({ name: '', department: '', idProofNumber: '', idProofExpiry: '', photo: '' })
       fetchWorkers()
     } catch (err) {
-      setAddError(err.response?.data?.error || 'Failed to add worker')
+      setAddError(err.message || err.response?.data?.error || 'Failed to add worker')
     } finally {
       setAddLoading(false)
     }
@@ -203,7 +238,7 @@ const ContractorDashboard = () => {
                   required />
               </div>
               <div className="mb-3">
-                <label className="form-label">ID Proof Number</label>
+                <label className="form-label">ID Card Number</label>
                 <input type="text" className="form-control"
                   value={newWorker.idProofNumber}
                   onChange={e => setNewWorker({ ...newWorker, idProofNumber: e.target.value })}
@@ -217,12 +252,33 @@ const ContractorDashboard = () => {
                   required />
               </div>
               <div className="mb-3">
-                <label className="form-label">Photo URL</label>
-                <input type="text" className="form-control"
-                  placeholder="Enter photo URL or base64"
-                  value={newWorker.photo}
-                  onChange={e => setNewWorker({ ...newWorker, photo: e.target.value })}
-                  required />
+                <label className="form-label">Worker Photo</label>
+                <input
+                  type="file"
+                  className="form-control"
+                  accept="image/jpeg,image/png"
+                  onChange={e => {
+                    const file = e.target.files[0]
+                    if (!file) return
+                    if (file.size > 5 * 1024 * 1024) {
+                      setAddError('Photo must be less than 5MB')
+                      return
+                    }
+                    const reader = new FileReader()
+                    reader.onloadend = () => {
+                      setNewWorker(prev => ({ ...prev, photo: reader.result }))
+                    }
+                    reader.readAsDataURL(file)
+                  }}
+                  required
+                />
+                {newWorker.photo && (
+                  <img
+                    src={newWorker.photo}
+                    alt="Preview"
+                    style={{ width: '80px', height: '80px', objectFit: 'cover', marginTop: '8px', borderRadius: '4px' }}
+                  />
+                )}
               </div>
               <button type="submit" className="btn btn-primary w-100" disabled={addLoading}>
                 {addLoading ? <span className="spinner-border spinner-border-sm me-2" /> : null}
@@ -235,7 +291,7 @@ const ContractorDashboard = () => {
         {activeTab === 'submit' && (
           <div>
             <h5 className="mb-3">Submit Daily Worker List</h5>
-            <p className="text-muted">Select workers coming today (deadline: 6 AM)</p>
+            <p className="text-muted">Select workers coming today (deadline: 8 AM)</p>
             {submitError && <div className="alert alert-danger">{submitError}</div>}
             {submitSuccess && <div className="alert alert-success">{submitSuccess}</div>}
             <div className="table-responsive mb-3">

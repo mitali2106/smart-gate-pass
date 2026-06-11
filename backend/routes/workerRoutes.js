@@ -4,6 +4,7 @@ const requireAuth = require('../middleware/auth')
 const requireRole = require('../middleware/roleAuth')
 const { addWorker, getWorkers, getWorkerById, updateWorker, deleteWorker } = require('../controllers/workerController')
 const { body } = require('express-validator')
+const Worker = require('../models/Worker')
 
 const validateWorker = [
   body('name').notEmpty().trim().escape(),
@@ -15,6 +16,14 @@ const validateWorker = [
 
 router.post('/', requireAuth, requireRole(['contractor']), validateWorker, addWorker)
 router.get('/', requireAuth, requireRole(['contractor', 'admin']), getWorkers)
+router.get('/all', requireAuth, requireRole(['gate_officer', 'admin', 'security']), async (req, res, next) => {
+  try {
+    const workers = await Worker.find({ status: 'Active' })
+    res.json({ workers })
+  } catch (err) {
+    next(err)
+  }
+})
 router.get('/:id', requireAuth, requireRole(['contractor', 'admin']), getWorkerById)
 router.put('/:id', requireAuth, requireRole(['contractor', 'admin']), updateWorker)
 router.delete('/:id', requireAuth, requireRole(['contractor']), deleteWorker)

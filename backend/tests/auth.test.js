@@ -13,39 +13,39 @@ const makeToken = (role) => jwt.sign(
 
 describe('Role-based authorization tests', () => {
 
-  test('contractor cannot access admin batch-approve endpoint', async () => {
+  test('contractor cannot access admin approve-list endpoint', async () => {
     const token = makeToken('contractor')
     const res = await request(app)
-      .post('/api/admin/approve-batch')
+      .post('/api/admin/approve-list')
       .set('Authorization', `Bearer ${token}`)
-      .send({ workerIds: ['123'] })
+      .send({ listId: '123' })
     expect(res.statusCode).toBe(403)
   })
 
   test('security cannot access admin endpoint', async () => {
     const token = makeToken('security')
     const res = await request(app)
-      .post('/api/admin/approve-batch')
+      .post('/api/admin/approve-list')
       .set('Authorization', `Bearer ${token}`)
-      .send({ workerIds: ['123'] })
+      .send({ listId: '123' })
     expect(res.statusCode).toBe(403)
   })
 
   test('gate_officer cannot access admin endpoint', async () => {
     const token = makeToken('gate_officer')
     const res = await request(app)
-      .post('/api/admin/approve-batch')
+      .post('/api/admin/approve-list')
       .set('Authorization', `Bearer ${token}`)
-      .send({ workerIds: ['123'] })
+      .send({ listId: '123' })
     expect(res.statusCode).toBe(403)
   })
 
   test('admin token is not rejected as 403 or 401', async () => {
     const token = makeToken('admin')
     const res = await request(app)
-      .post('/api/admin/approve-batch')
+      .post('/api/admin/approve-list')
       .set('Authorization', `Bearer ${token}`)
-      .send({ workerIds: ['123'] })
+      .send({ listId: '123' })
     expect(res.statusCode).not.toBe(403)
     expect(res.statusCode).not.toBe(401)
   })

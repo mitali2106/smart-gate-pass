@@ -20,94 +20,116 @@ const getDashboard = async (req, res, next) => {
   try {
     const today = getStartOfDay(new Date())
 
-    const matched = await VerificationRecord.find({
+    const pendingLists = await DailyWorkerList.find({
       date: today,
-      verificationStatus: 'Matched'
-    }).populate('workerId')
+      status: 'Pending'
+    }).populate('contractorId').populate('workers')
+
+    const approvedLists = await DailyWorkerList.find({
+      date: today,
+      status: 'Approved'
+    }).populate('contractorId').populate('workers')
 
     const needsReview = await VerificationRecord.find({
       date: today,
       verificationStatus: 'NeedsReview'
     }).populate('workerId')
 
-    const approved = await GatePass.find({
+    const approvedPasses = await GatePass.find({
       date: today,
       status: 'Approved'
     }).populate('workerId')
 
-    res.json({ matched, needsReview, approved })
+    res.json({ pendingLists, approvedLists, needsReview, approvedPasses })
   } catch (err) {
     next(err)
   }
 }
 
-const approveBatch = async (req, res, next) => {
+const approveList = async (req, res, next) => {
   try {
-    const { workerIds, overrideReason } = req.body
+    const { listId } = req.body
     const adminId = req.user.userId
-    const today = getStartOfDay(new Date())
-    const results = { approved: [], failed: [] }
 
-    for (const workerId of workerIds) {
-      try {
-        const worker = await Worker.findById(workerId)
-
-        if (!worker) {
-          results.failed.push({ workerId, reason: 'Worker not found' })
-          continue
-        }
-
-        if (worker.status === 'Blacklisted') {
-          results.failed.push({ workerId, reason: 'Worker is blacklisted' })
-          continue
-        }
-
-        const existingPass = await GatePass.findOne({ workerId, date: today })
-        if (existingPass) {
-          results.failed.push({ workerId, reason: 'Pass already exists for today' })
-          continue
-        }
-
-        const passNumber = generatePassNumber()
-        const expiresAt = new Date(today)
-        expiresAt.setHours(23, 59, 59, 999)
-
-        const qrPayload = jwt.sign(
-          { passNumber, workerId: workerId.toString(), date: today.toISOString() },
-          process.env.JWT_SECRET,
-          { expiresIn: '24h' }
-        )
-
-        const gatePass = await GatePass.create({
-          passNumber,
-          workerId,
-          date: today,
-          status: 'Approved',
-          qrPayload,
-          entryUsed: false,
-          approvedBy: adminId,
-          overrideReason: overrideReason || null,
-          expiresAt
-        })
-
-        await VerificationRecord.findOneAndUpdate(
-          { workerId, date: today },
-          { verificationStatus: 'Matched' }
-        )
-
-        results.approved.push({ workerId, passNumber: gatePass.passNumber })
-      } catch (err) {
-        results.failed.push({ workerId, reason: err.message })
-      }
+    const list = await DailyWorkerList.findById(listId).populate('workers')
+    if (!list) {
+      return res.status(404).json({ error: 'List not found' })
     }
 
+    if (list.status === 'Approved') {
+      return res.status(400).json({ error: 'List already approved' })
+    }
+
+    list.status = 'Approved'
+    await list.save()
+
     res.json({
-      message: `Approved ${results.approved.length}, Failed ${results.failed.length}`,
-      results
+      message: `List approved successfully. ${list.workers.length} workers authorized for today.`,
+      list
     })
   } catch (err) {
     next(err)
   }
 }
 
-module.exports = { getDashboard, approveBatch }
+const overrideWorker = async (req, res, next) => {
+  try {
+    const { workerId, overrideReason } = req.body
+    const adminId = req.user.userId
+    const today = getStartOfDay(new Date())
+
+    if (!overrideReason || !overrideReason.trim()) {
+      return res.status(400).json({ error: 'Override reason is required' })
+    }
+
+    const worker = await Worker.findById(workerId)
+    if (!worker) {
+      return res.status(404).json({ error: 'Worker not found' })
+    }
+
+    if (worker.status === 'Blacklisted') {
+      return res.status(400).json({ error: 'Blacklisted workers cannot be overridden' })
+    }
+
+    const existingPass = await GatePass.findOne({ workerId, date: today })
+    if (existingPass) {
+      return res.status(400).json({ error: 'Gate pass already exists for this worker today' })
+    }
+
+    const passNumber = generatePassNumber()
+    const expiresAt = new Date(today)
+    expiresAt.setHours(23, 59, 59, 999)
+
+    const qrPayload = jwt.sign(
+      { passNumber, workerId: workerId.toString(), date: today.toISOString() },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    )
+
+    const gatePass = await GatePass.create({
+      passNumber,
+      workerId,
+      date: today,
+      status: 'Approved',
+      qrPayload,
+      entryUsed: false,
+      approvedBy: adminId,
+      overrideReason,
+      expiresAt
+    })
+
+    await VerificationRecord.findOneAndUpdate(
+      { workerId, date: today },
+      { verificationStatus: 'Matched' }
+    )
+
+    res.json({
+      message: 'Worker overridden and gate pass generated',
+      gatePass
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+module.exports = { getDashboard, approveList, overrideWorker }

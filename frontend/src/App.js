@@ -7,6 +7,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import ProtectedRoute from './components/ProtectedRoute'
 
 import Login from './pages/Login'
+import Register from './pages/Register'
 import ContractorDashboard from './pages/ContractorDashboard'
 import GateOfficerDashboard from './pages/GateOfficerDashboard'
 import AdminDashboard from './pages/AdminDashboard'
@@ -22,6 +23,7 @@ const App = () => {
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             <Route path="/403" element={<Forbidden />} />
 
             <Route path="/contractor" element={

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
 import FaceScanner from '../components/FaceScanner'
+import { QRCodeSVG } from 'qrcode.react'
 
 const GateOfficerDashboard = () => {
   const { user, logout } = useAuth()
@@ -10,10 +11,11 @@ const GateOfficerDashboard = () => {
   const [activeTab, setActiveTab] = useState('scan')
   const [workers, setWorkers] = useState([])
   const [submitting, setSubmitting] = useState(false)
+  const [generatedPass, setGeneratedPass] = useState(null)
 
   useEffect(() => {
     fetchPending()
-    fetchWorkers()
+    fetchAllWorkers()
   }, [])
 
   const fetchPending = async () => {
@@ -23,9 +25,9 @@ const GateOfficerDashboard = () => {
     } catch (err) {}
   }
 
-  const fetchWorkers = async () => {
+  const fetchAllWorkers = async () => {
     try {
-      const res = await api.get('/workers')
+      const res = await api.get('/workers/all')
       setWorkers(res.data.workers)
     } catch (err) {}
   }
@@ -36,7 +38,6 @@ const GateOfficerDashboard = () => {
       return
     }
 
-    const { confidence, livenessPass } = result
     const matchResult = result.confidence
 
     if (!matchResult || !matchResult.matched) {
@@ -53,9 +54,12 @@ const GateOfficerDashboard = () => {
       const res = await api.post('/verify/scan', {
         workerId: matchResult.workerId,
         confidence: matchResult.confidence,
-        livenessPass
+        livenessPass: result.livenessPass
       })
       setScanResult({ ...res.data, confidence: matchResult.confidence })
+      if (res.data.gatePass) {
+        setGeneratedPass(res.data.gatePass)
+      }
       fetchPending()
     } catch (err) {
       setScanResult({ error: err.response?.data?.error || 'Scan submission failed' })
@@ -92,6 +96,9 @@ const GateOfficerDashboard = () => {
         {activeTab === 'scan' && (
           <div style={{ maxWidth: '520px' }}>
             <h5 className="mb-3">Face Recognition Scanner</h5>
+            <p className="text-muted small">
+              {workers.length} workers loaded for matching
+            </p>
             <FaceScanner
               storedWorkers={workers}
               onScanResult={handleScanResult}
@@ -99,7 +106,7 @@ const GateOfficerDashboard = () => {
             {submitting && (
               <div className="mt-2 text-center">
                 <span className="spinner-border spinner-border-sm me-2" />
-                Submitting scan result...
+                Processing scan...
               </div>
             )}
             {scanResult && (
@@ -118,6 +125,28 @@ const GateOfficerDashboard = () => {
                     )}
                   </>
                 )}
+              </div>
+            )}
+
+            {generatedPass && (
+              <div className="card mt-3 p-3 border-success">
+                <h6 className="text-success">✅ Gate Pass Generated</h6>
+                <p className="mb-1"><strong>Pass Number:</strong> {generatedPass.passNumber}</p>
+                <p className="mb-2"><strong>Valid for:</strong> Today only</p>
+                <div className="d-flex justify-content-center mt-2">
+                  <QRCodeSVG value={generatedPass.qrPayload} size={150} />
+                </div>
+                <p className="text-muted small text-center mt-2">
+                  Worker can show this QR at the security gate
+                </p>
+                <button
+                  className="btn btn-outline-success btn-sm mt-2"
+                  onClick={() => {
+                    setScanResult(null)
+                    setGeneratedPass(null)
+                  }}>
+                  Scan Next Worker
+                </button>
               </div>
             )}
           </div>

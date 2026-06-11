@@ -1,11 +1,19 @@
 const VerificationRecord = require('../models/VerificationRecord')
 const Worker = require('../models/Worker')
 const DailyWorkerList = require('../models/DailyWorkerList')
+const GatePass = require('../models/GatePass')
+const jwt = require('jsonwebtoken')
 
 const getStartOfDay = (date) => {
   const d = new Date(date)
   d.setHours(0, 0, 0, 0)
   return d
+}
+
+const generatePassNumber = () => {
+  const date = new Date().toISOString().slice(0, 10)
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase()
+  return `GP-${date}-${random}`
 }
 
 const run5PointCheck = async (workerId, confidence, date) => {
@@ -15,9 +23,11 @@ const run5PointCheck = async (workerId, confidence, date) => {
   if (confidence < 85) return { pass: false, failureCode: 'FACE_MISMATCH' }
 
   const today = getStartOfDay(date)
+
   const list = await DailyWorkerList.findOne({
     date: today,
-    workers: workerId
+    workers: workerId,
+    status: 'Approved'
   })
   if (!list) return { pass: false, failureCode: 'NOT_IN_LIST' }
 
@@ -46,10 +56,36 @@ const submitScan = async (req, res, next) => {
     const checkResult = await run5PointCheck(workerId, confidence, new Date())
 
     let verificationStatus
+    let gatePass = null
+
     if (!livenessPass) {
       verificationStatus = 'Rejected'
     } else if (checkResult.pass) {
       verificationStatus = 'Matched'
+
+      const existingPass = await GatePass.findOne({ workerId, date: today })
+      if (!existingPass) {
+        const passNumber = generatePassNumber()
+        const expiresAt = new Date(today)
+        expiresAt.setHours(23, 59, 59, 999)
+
+        const qrPayload = jwt.sign(
+          { passNumber, workerId: workerId.toString(), date: today.toISOString() },
+          process.env.JWT_SECRET,
+          { expiresIn: '24h' }
+        )
+
+        gatePass = await GatePass.create({
+          passNumber,
+          workerId,
+          date: today,
+          status: 'Approved',
+          qrPayload,
+          entryUsed: false,
+          approvedBy: officerId,
+          expiresAt
+        })
+      }
     } else if (checkResult.failureCode === 'FACE_MISMATCH') {
       verificationStatus = 'NeedsReview'
     } else {
@@ -71,6 +107,7 @@ const submitScan = async (req, res, next) => {
       message: 'Scan recorded',
       verificationStatus,
       failureCode: checkResult.failureCode || null,
+      gatePass,
       record
     })
   } catch (err) {

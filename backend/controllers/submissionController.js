@@ -21,7 +21,7 @@ const submitList = async (req, res, next) => {
     const today = getStartOfDay(now)
 
     const cutoff = new Date(today)
-    cutoff.setHours(6, 0, 0, 0)
+    cutoff.setHours(8, 0, 0, 0)
 
     if (now > cutoff) {
       return res.status(400).json({ error: 'Submission deadline passed. Lists must be submitted before 6 AM.' })
