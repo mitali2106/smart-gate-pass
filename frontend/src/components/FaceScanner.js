@@ -145,7 +145,7 @@ const FaceScanner = ({ storedWorkers, onScanResult }) => {
       )
     )
 
-    const matcher = new faceapi.FaceMatcher(labeled, 0.35)
+    const matcher = new faceapi.FaceMatcher(labeled, 0.55)
     const match = matcher.findBestMatch(new Float32Array(liveDescriptor))
 
     return {
