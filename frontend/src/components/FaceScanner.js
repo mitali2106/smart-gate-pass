@@ -100,15 +100,15 @@ const FaceScanner = ({ storedWorkers, onScanResult }) => {
       const rightEye = landmarks.getRightEye()
       const EAR = (eyeAspectRatio(leftEye) + eyeAspectRatio(rightEye)) / 2
 
-      if (EAR < 0.25 && !eyeWasClosed) {
+      if (EAR < 0.28 && !eyeWasClosed) {
         eyeWasClosed = true
         blinks++
         setBlinkCount(blinks)
-      } else if (EAR >= 0.25) {
+      } else if (EAR >= 0.22) {
         eyeWasClosed = false
       }
 
-      if (blinks === 0 && Date.now() - startTime > 5000) {
+      if (blinks === 0 && Date.now() - startTime > 8000) {
         clearInterval(scanIntervalRef.current)
         setScanning(false)
         setStatusMessage('No blink detected. Possible printed photo. Scan rejected.')
