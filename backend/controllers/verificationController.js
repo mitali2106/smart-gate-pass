@@ -20,7 +20,7 @@ const run5PointCheck = async (workerId, confidence, date) => {
   const worker = await Worker.findById(workerId)
   if (!worker) return { pass: false, failureCode: 'FACE_MISMATCH' }
 
-  if (confidence < 65) return { pass: false, failureCode: 'FACE_MISMATCH' }
+  if (confidence < 60) return { pass: false, failureCode: 'FACE_MISMATCH' }
 
   const today = getStartOfDay(date)
 
@@ -92,16 +92,20 @@ const submitScan = async (req, res, next) => {
       verificationStatus = 'Rejected'
     }
 
-    const record = await VerificationRecord.create({
-      workerId,
-      date: today,
-      officerId,
-      confidence,
-      livenessPass,
-      failureCode: checkResult.pass ? null : checkResult.failureCode,
-      verificationStatus,
-      expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
-    })
+    const record = await VerificationRecord.findOneAndUpdate(
+      { workerId, date: today },
+      {
+        workerId,
+        date: today,
+        officerId,
+        confidence,
+        livenessPass,
+        failureCode: checkResult.pass ? null : checkResult.failureCode,
+        verificationStatus,
+        expireAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+      },
+      { upsert: true, new: true }
+    )
 
     res.status(201).json({
       message: 'Scan recorded',
