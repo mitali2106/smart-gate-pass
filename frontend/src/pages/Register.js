@@ -36,7 +36,7 @@ const Register = () => {
 
   return (
     <div className="container d-flex justify-content-center align-items-center min-vh-100">
-      <div className="card shadow p-4" style={{ width: '100%', maxWidth: '480px' }}>
+      <div className="auth-card" style={{ width: '100%', maxWidth: '480px' }}>
         <h3 className="text-center mb-1 text-primary fw-bold">Smart Gate Pass</h3>
         <p className="text-center text-muted mb-4">Create your account</p>
 

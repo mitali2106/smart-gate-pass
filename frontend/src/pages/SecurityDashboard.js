@@ -37,7 +37,7 @@ const SecurityDashboard = () => {
         if (document.getElementById('qr-reader-security')) {
           scannerRef.current = new Html5QrcodeScanner(
             'qr-reader-security',
-            { fps: 10, qrbox: { width: 250, height: 250 } },
+            { fps: 15, qrbox: { width: 300, height: 300 }, aspectRatio: 1.0 },
             false
           )
           scannerRef.current.render(
@@ -188,7 +188,24 @@ const SecurityDashboard = () => {
                     </div>
                     <p className="text-muted">Step 2: Scan worker's QR gate pass</p>
                     {!qrScanned ? (
-                      <div id="qr-reader-security" style={{ width: '100%' }} />
+                      <div>
+                        <div id="qr-reader-security" style={{ width: '100%' }} />
+                        <div className="mt-3">
+                          <p className="text-muted small text-center">— OR paste QR payload manually —</p>
+                          <textarea
+                            className="form-control"
+                            rows="3"
+                            placeholder="Paste QR JWT payload here"
+                            onChange={e => {
+                              if (e.target.value.trim()) {
+                                setQrPayload(e.target.value.trim())
+                                setQrScanned(true)
+                                if (scannerRef.current) scannerRef.current.clear()
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
                     ) : (
                       <div className="alert alert-success d-flex justify-content-between align-items-center">
                         <span>✅ QR Code scanned successfully</span>
