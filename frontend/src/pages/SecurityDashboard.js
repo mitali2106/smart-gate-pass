@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
-import { Html5QrcodeScanner } from 'html5-qrcode'
+import { QrReader } from 'react-qr-reader'
 import FaceScanner from '../components/FaceScanner'
 
 const SecurityDashboard = () => {
@@ -19,39 +19,11 @@ const SecurityDashboard = () => {
   const [entryError, setEntryError] = useState(null)
   const [entryLoading, setEntryLoading] = useState(false)
   const [workers, setWorkers] = useState([])
-
-  const scannerRef = useRef(null)
+  const [manualPayload, setManualPayload] = useState('')
 
   useEffect(() => {
     fetchAllWorkers()
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear()
-      }
-    }
   }, [])
-
-  useEffect(() => {
-    if (step === 'qr' && !qrScanned) {
-      setTimeout(() => {
-        if (document.getElementById('qr-reader-security')) {
-          scannerRef.current = new Html5QrcodeScanner(
-            'qr-reader-security',
-            { fps: 15, qrbox: { width: 300, height: 300 }, aspectRatio: 1.0 },
-            false
-          )
-          scannerRef.current.render(
-            (decodedText) => {
-              setQrPayload(decodedText)
-              setQrScanned(true)
-              scannerRef.current.clear()
-            },
-            (error) => {}
-          )
-        }
-      }, 500)
-    }
-  }, [step, qrScanned])
 
   const fetchAllWorkers = async () => {
     try {
@@ -75,6 +47,22 @@ const SecurityDashboard = () => {
     setScannedWorkerName(worker?.name || 'Unknown Worker')
     setStep('qr')
     setEntryError(null)
+  }
+
+  const handleQrScan = (result) => {
+    if (result && result.text && !qrScanned) {
+      setQrPayload(result.text)
+      setQrScanned(true)
+    }
+  }
+
+  const handleManualPaste = (e) => {
+    const value = e.target.value.trim()
+    setManualPayload(value)
+    if (value) {
+      setQrPayload(value)
+      setQrScanned(true)
+    }
   }
 
   const handleRecordEntry = async () => {
@@ -106,6 +94,7 @@ const SecurityDashboard = () => {
     setQrScanned(false)
     setEntryResult(null)
     setEntryError(null)
+    setManualPayload('')
   }
 
   const fetchDashboard = async () => {
@@ -186,23 +175,28 @@ const SecurityDashboard = () => {
                     <div className="alert alert-success mb-3">
                       ✅ Worker identified: <strong>{scannedWorkerName}</strong>
                     </div>
-                    <p className="text-muted">Step 2: Scan worker's QR gate pass</p>
+                    <p className="text-muted mb-2">Step 2: Scan worker's QR gate pass</p>
+
                     {!qrScanned ? (
                       <div>
-                        <div id="qr-reader-security" style={{ width: '100%' }} />
+                        <div style={{ width: '100%', borderRadius: '12px', overflow: 'hidden' }}>
+                          <QrReader
+                            onResult={handleQrScan}
+                            constraints={{ facingMode: 'environment' }}
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                        <p className="text-muted small text-center mt-2">
+                          Point camera at the QR code
+                        </p>
                         <div className="mt-3">
                           <p className="text-muted small text-center">— OR paste QR payload manually —</p>
                           <textarea
                             className="form-control"
                             rows="3"
                             placeholder="Paste QR JWT payload here"
-                            onChange={e => {
-                              if (e.target.value.trim()) {
-                                setQrPayload(e.target.value.trim())
-                                setQrScanned(true)
-                                if (scannerRef.current) scannerRef.current.clear()
-                              }
-                            }}
+                            value={manualPayload}
+                            onChange={handleManualPaste}
                           />
                         </div>
                       </div>
@@ -210,7 +204,7 @@ const SecurityDashboard = () => {
                       <div className="alert alert-success d-flex justify-content-between align-items-center">
                         <span>✅ QR Code scanned successfully</span>
                         <button className="btn btn-sm btn-outline-success"
-                          onClick={() => { setQrPayload(''); setQrScanned(false) }}>
+                          onClick={() => { setQrPayload(''); setQrScanned(false); setManualPayload('') }}>
                           Rescan
                         </button>
                       </div>
