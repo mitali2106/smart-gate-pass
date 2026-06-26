@@ -1,6 +1,5 @@
 const Attendance = require('../models/Attendance')
 const GatePass = require('../models/GatePass')
-const jwt = require('jsonwebtoken')
 
 const getStartOfDay = (date) => {
   const d = new Date(date)
@@ -14,25 +13,19 @@ const recordEntry = async (req, res, next) => {
     const officerId = req.user.userId
     const today = getStartOfDay(new Date())
 
-    let decoded
-    try {
-      decoded = jwt.verify(qrPayload, process.env.JWT_SECRET)
-    } catch (err) {
-      return res.status(400).json({ error: 'Invalid QR code - signature verification failed' })
-    }
+    // qrPayload is now just the pass number e.g. "GP-2026-06-11-YKMI"
+    const gatePass = await GatePass.findOne({
+      passNumber: qrPayload.trim(),
+      date: today,
+      status: 'Approved'
+    })
 
-    if (decoded.workerId !== workerId) {
-      return res.status(400).json({ error: 'QR code does not match scanned worker' })
-    }
-
-    const qrDate = getStartOfDay(new Date(decoded.date))
-    if (qrDate.getTime() !== today.getTime()) {
-      return res.status(400).json({ error: 'QR code has expired - wrong date' })
-    }
-
-    const gatePass = await GatePass.findOne({ workerId, date: today, status: 'Approved' })
     if (!gatePass) {
-      return res.status(400).json({ error: 'No approved gate pass found for today' })
+      return res.status(400).json({ error: 'Invalid QR code - no matching gate pass found for today' })
+    }
+
+    if (gatePass.workerId.toString() !== workerId) {
+      return res.status(400).json({ error: 'QR code does not match scanned worker' })
     }
 
     const existingAttendance = await Attendance.findOne({ workerId, date: today })

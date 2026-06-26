@@ -69,11 +69,7 @@ const submitScan = async (req, res, next) => {
         const expiresAt = new Date(today)
         expiresAt.setHours(23, 59, 59, 999)
 
-        const qrPayload = jwt.sign(
-          { passNumber, workerId: workerId.toString(), date: today.toISOString() },
-          process.env.JWT_SECRET,
-          { expiresIn: '24h' }
-        )
+       const qrPayload = passNumber
 
         gatePass = await GatePass.create({
           passNumber,
