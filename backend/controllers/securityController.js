@@ -9,32 +9,23 @@ const getStartOfDay = (date) => {
 
 const recordEntry = async (req, res, next) => {
   try {
-    const { workerId, qrPayload } = req.body
+    const { workerId } = req.body
     const officerId = req.user.userId
     const today = getStartOfDay(new Date())
 
-    // qrPayload is now just the pass number e.g. "GP-2026-06-11-YKMI"
     const gatePass = await GatePass.findOne({
-      passNumber: qrPayload.trim(),
+      workerId,
       date: today,
       status: 'Approved'
     })
 
     if (!gatePass) {
-      return res.status(400).json({ error: 'Invalid QR code - no matching gate pass found for today' })
-    }
-
-    if (gatePass.workerId.toString() !== workerId) {
-      return res.status(400).json({ error: 'QR code does not match scanned worker' })
+      return res.status(400).json({ error: 'No approved gate pass found for today. Worker must be verified at gate officer station first.' })
     }
 
     const existingAttendance = await Attendance.findOne({ workerId, date: today })
 
     if (!existingAttendance) {
-      if (gatePass.entryUsed) {
-        return res.status(400).json({ error: 'Entry already recorded for today' })
-      }
-
       const attendance = await Attendance.create({
         workerId,
         date: today,

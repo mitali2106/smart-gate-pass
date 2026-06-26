@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
-import { QrReader } from 'react-qr-reader'
 import FaceScanner from '../components/FaceScanner'
 
 const SecurityDashboard = () => {
@@ -9,17 +8,13 @@ const SecurityDashboard = () => {
   const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('scanner')
-
   const [step, setStep] = useState('face')
   const [scannedWorkerId, setScannedWorkerId] = useState(null)
   const [scannedWorkerName, setScannedWorkerName] = useState(null)
-  const [qrPayload, setQrPayload] = useState('')
-  const [qrScanned, setQrScanned] = useState(false)
   const [entryResult, setEntryResult] = useState(null)
   const [entryError, setEntryError] = useState(null)
   const [entryLoading, setEntryLoading] = useState(false)
   const [workers, setWorkers] = useState([])
-  const [manualPayload, setManualPayload] = useState('')
 
   useEffect(() => {
     fetchAllWorkers()
@@ -45,29 +40,13 @@ const SecurityDashboard = () => {
     const worker = workers.find(w => w._id === matchResult.workerId)
     setScannedWorkerId(matchResult.workerId)
     setScannedWorkerName(worker?.name || 'Unknown Worker')
-    setStep('qr')
+    setStep('confirm')
     setEntryError(null)
   }
 
-  const handleQrScan = (result) => {
-    if (result && result.text && !qrScanned) {
-      setQrPayload(result.text)
-      setQrScanned(true)
-    }
-  }
-
-  const handleManualPaste = (e) => {
-    const value = e.target.value.trim()
-    setManualPayload(value)
-    if (value) {
-      setQrPayload(value)
-      setQrScanned(true)
-    }
-  }
-
   const handleRecordEntry = async () => {
-    if (!scannedWorkerId || !qrPayload) {
-      setEntryError('Both face scan and QR scan are required')
+    if (!scannedWorkerId) {
+      setEntryError('Please scan worker face first')
       return
     }
     setEntryLoading(true)
@@ -75,8 +54,7 @@ const SecurityDashboard = () => {
     setEntryError(null)
     try {
       const res = await api.post('/security/entry', {
-        workerId: scannedWorkerId,
-        qrPayload
+        workerId: scannedWorkerId
       })
       setEntryResult(res.data)
     } catch (err) {
@@ -90,11 +68,8 @@ const SecurityDashboard = () => {
     setStep('face')
     setScannedWorkerId(null)
     setScannedWorkerName(null)
-    setQrPayload('')
-    setQrScanned(false)
     setEntryResult(null)
     setEntryError(null)
-    setManualPayload('')
   }
 
   const fetchDashboard = async () => {
@@ -140,12 +115,13 @@ const SecurityDashboard = () => {
               <div className={`badge p-2 ${step === 'face' ? 'bg-primary' : 'bg-success'}`}>
                 Step 1: Face Scan
               </div>
-              <div className={`badge p-2 ${step === 'qr' ? 'bg-primary' : step === 'done' ? 'bg-success' : 'bg-secondary'}`}>
-                Step 2: QR Scan
+              <div className={`badge p-2 ${step === 'confirm' ? 'bg-primary' : step === 'done' ? 'bg-success' : 'bg-secondary'}`}>
+                Step 2: Confirm Entry
               </div>
             </div>
 
             {entryError && <div className="alert alert-danger">{entryError}</div>}
+
             {entryResult && (
               <div className="alert alert-success">
                 <strong>{entryResult.message}</strong>
@@ -162,7 +138,7 @@ const SecurityDashboard = () => {
               <>
                 {step === 'face' && (
                   <div>
-                    <p className="text-muted">Step 1: Scan worker's face to identify them</p>
+                    <p className="text-muted">Scan worker's face to identify them</p>
                     <FaceScanner
                       storedWorkers={workers}
                       onScanResult={handleFaceScanResult}
@@ -170,58 +146,21 @@ const SecurityDashboard = () => {
                   </div>
                 )}
 
-                {step === 'qr' && (
+                {step === 'confirm' && (
                   <div>
                     <div className="alert alert-success mb-3">
                       ✅ Worker identified: <strong>{scannedWorkerName}</strong>
                     </div>
-                    <p className="text-muted mb-2">Step 2: Scan worker's QR gate pass</p>
-
-                    {!qrScanned ? (
-                      <div>
-                        <div style={{ width: '100%', borderRadius: '12px', overflow: 'hidden' }}>
-                          <QrReader
-                            onResult={handleQrScan}
-                            constraints={{ facingMode: 'environment' }}
-                            style={{ width: '100%' }}
-                          />
-                        </div>
-                        <p className="text-muted small text-center mt-2">
-                          Point camera at the QR code
-                        </p>
-                        <div className="mt-3">
-                          <p className="text-muted small text-center">— OR paste QR payload manually —</p>
-                          <textarea
-                            className="form-control"
-                            rows="3"
-                            placeholder="Paste QR JWT payload here"
-                            value={manualPayload}
-                            onChange={handleManualPaste}
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="alert alert-success d-flex justify-content-between align-items-center">
-                        <span>✅ QR Code scanned successfully</span>
-                        <button className="btn btn-sm btn-outline-success"
-                          onClick={() => { setQrPayload(''); setQrScanned(false); setManualPayload('') }}>
-                          Rescan
-                        </button>
-                      </div>
-                    )}
-
-                    {qrScanned && (
-                      <button
-                        className="btn btn-danger w-100 mt-3"
-                        onClick={handleRecordEntry}
-                        disabled={entryLoading}>
-                        {entryLoading ? (
-                          <span className="spinner-border spinner-border-sm me-2" />
-                        ) : null}
-                        Record Entry / Exit
-                      </button>
-                    )}
-
+                    <p className="text-muted">System will verify gate pass automatically.</p>
+                    <button
+                      className="btn btn-danger w-100 mt-2"
+                      onClick={handleRecordEntry}
+                      disabled={entryLoading}>
+                      {entryLoading ? (
+                        <span className="spinner-border spinner-border-sm me-2" />
+                      ) : null}
+                      Record Entry / Exit
+                    </button>
                     <button className="btn btn-outline-secondary w-100 mt-2" onClick={resetScanner}>
                       Start Over
                     </button>
