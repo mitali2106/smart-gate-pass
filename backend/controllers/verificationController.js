@@ -20,7 +20,7 @@ const run5PointCheck = async (workerId, confidence, date) => {
   const worker = await Worker.findById(workerId)
   if (!worker) return { pass: false, failureCode: 'FACE_MISMATCH' }
 
-  if (confidence < 60) return { pass: false, failureCode: 'FACE_MISMATCH' }
+  if (confidence < 50) return { pass: false, failureCode: 'FACE_MISMATCH' }
 
   const today = getStartOfDay(date)
 
